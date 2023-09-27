@@ -164,7 +164,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
                 ImmutableList.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                0);
 
         String tablePath = inputFile.location().fileName();
         TableHandle tableHandle = new TableHandle(
