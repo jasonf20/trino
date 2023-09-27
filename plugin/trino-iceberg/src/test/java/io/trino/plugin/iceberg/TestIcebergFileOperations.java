@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
-import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
+import io.trino.plugin.iceberg.util.TrackingFileSystemUtils;
+import io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileOperation;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -37,7 +37,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -52,22 +51,19 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.STATS;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.ALL_FILES;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileType.DATA;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileType.MANIFEST;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.FileType.STATS;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.Scope.ALL_FILES;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.util.TrackingFileSystemUtils.getOperations;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
 
 @Execution(ExecutionMode.SAME_THREAD) // e.g. trackingFileSystemFactory is shared mutable state
 public class TestIcebergFileOperations
@@ -674,13 +670,13 @@ public class TestIcebergFileOperations
         // Pointed lookup
         assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(FileType.METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TrackingFileSystemUtils.FileType.METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .build());
 
         // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
         assertFileSystemAccesses(session, "DESCRIBE test_select_i_s_columns0",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(FileType.METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TrackingFileSystemUtils.FileType.METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .build());
 
         for (int i = 0; i < tables; i++) {
@@ -803,7 +799,7 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(query, METADATA_FILES, expectedAccesses);
     }
 
-    private void assertFileSystemAccesses(@Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
+    private void assertFileSystemAccesses(@Language("SQL") String query, TrackingFileSystemUtils.Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         assertFileSystemAccesses(getSession(), query, scope, expectedAccesses);
     }
@@ -813,12 +809,12 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(session, query, METADATA_FILES, expectedAccesses);
     }
 
-    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
+    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, TrackingFileSystemUtils.Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         resetCounts();
         getDistributedQueryRunner().executeWithQueryId(session, query);
         assertMultisetsEqual(
-                getOperations().stream()
+                getOperations(trackingFileSystemFactory).stream()
                         .filter(scope)
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
@@ -827,16 +823,6 @@ public class TestIcebergFileOperations
     private void resetCounts()
     {
         trackingFileSystemFactory.reset();
-    }
-
-    private Multiset<FileOperation> getOperations()
-    {
-        return trackingFileSystemFactory.getOperationCounts()
-                .entrySet().stream()
-                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        fromFilePath(entry.getKey().location().toString()),
-                        entry.getKey().operationType())).stream())
-                .collect(toCollection(HashMultiset::create));
     }
 
     private long getLatestSnapshotId(String tableName)
@@ -850,63 +836,5 @@ public class TestIcebergFileOperations
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
-    }
-
-    private record FileOperation(FileType fileType, OperationType operationType)
-    {
-        public FileOperation
-        {
-            requireNonNull(fileType, "fileType is null");
-            requireNonNull(operationType, "operationType is null");
-        }
-    }
-
-    enum Scope
-            implements Predicate<FileOperation>
-    {
-        METADATA_FILES {
-            @Override
-            public boolean test(FileOperation fileOperation)
-            {
-                return fileOperation.fileType() != DATA;
-            }
-        },
-        ALL_FILES {
-            @Override
-            public boolean test(FileOperation fileOperation)
-            {
-                return true;
-            }
-        },
-    }
-
-    enum FileType
-    {
-        METADATA_JSON,
-        SNAPSHOT,
-        MANIFEST,
-        STATS,
-        DATA,
-        /**/;
-
-        public static FileType fromFilePath(String path)
-        {
-            if (path.endsWith("metadata.json")) {
-                return METADATA_JSON;
-            }
-            if (path.contains("/snap-")) {
-                return SNAPSHOT;
-            }
-            if (path.endsWith("-m0.avro")) {
-                return MANIFEST;
-            }
-            if (path.endsWith(".stats")) {
-                return STATS;
-            }
-            if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
-                return DATA;
-            }
-            throw new IllegalArgumentException("File not recognized: " + path);
-        }
     }
 }
