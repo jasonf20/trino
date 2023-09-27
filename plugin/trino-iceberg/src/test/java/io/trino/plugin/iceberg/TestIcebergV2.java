@@ -330,6 +330,38 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeleteAppliesOnlyToCorrectDataVersion()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+
+        for (int i = 1; i < 3; i++) {
+            writeEqualityDeleteToNationTable(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+        }
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+
+        // Reinsert the data for regionkey = 1. This should insert the data with a larger datasequence number and the delete file should not apply to it anymore.
+        // Also delete something again so that the split has deletes and the delete logic is activated.
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", 5);
+        writeEqualityDeleteToNationTable(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("regionkey", Integer.toUnsignedLong(3)));
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE (regionkey != 2L AND regionkey != 3L)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testMultipleEqualityDeletesWithEquivalentSchemas()
             throws Exception
     {
