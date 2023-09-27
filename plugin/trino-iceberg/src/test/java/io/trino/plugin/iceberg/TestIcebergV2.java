@@ -56,7 +56,6 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
-import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
@@ -93,6 +92,8 @@ import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPe
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -1031,12 +1032,7 @@ public class TestIcebergV2
             Optional<List<String>> deleteFileColumns)
             throws Exception
     {
-        List<String> deleteColumns = deleteFileColumns.orElse(new ArrayList<>(overwriteValues.keySet()));
-        Schema deleteRowSchema = icebergTable.schema().select(deleteColumns);
-        List<Integer> equalityDeleteFieldIds = deleteColumns.stream()
-                .map(name -> deleteRowSchema.findField(name).fieldId())
-                .collect(toImmutableList());
-       writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, deleteRowSchema, equalityDeleteFieldIds);
+        writeEqualityDeleteForTable(icebergTable, metastoreDir, fileSystemFactory, partitionSpec, partitionData, overwriteValues, deleteFileColumns);
     }
 
     private void writeEqualityDeleteToNationTableWithDeleteColumns(
@@ -1048,29 +1044,7 @@ public class TestIcebergV2
             List<Integer> equalityDeleteFieldIds)
             throws Exception
     {
-        Path metadataDir = new Path(metastoreDir.toURI());
-        String deleteFileName = "delete_file_" + UUID.randomUUID();
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
-
-        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fileIo.newOutputFile(new Path(metadataDir, deleteFileName).toString()))
-                .forTable(icebergTable)
-                .rowSchema(deleteRowSchema)
-                .createWriterFunc(GenericParquetWriter::buildWriter)
-                .equalityFieldIds(equalityDeleteFieldIds)
-                .overwrite();
-        if (partitionSpec.isPresent() && partitionData.isPresent()) {
-            writerBuilder = writerBuilder
-                    .withSpec(partitionSpec.get())
-                    .withPartition(partitionData.get());
-        }
-        EqualityDeleteWriter<Record> writer = writerBuilder.buildEqualityWriter();
-
-        Record dataDelete = GenericRecord.create(deleteRowSchema);
-        try (Closeable ignored = writer) {
-            writer.write(dataDelete.copy(overwriteValues));
-        }
-
-        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+        writeEqualityDeleteForTableWithSchema(icebergTable, metastoreDir, fileSystemFactory, partitionSpec, partitionData, deleteRowSchema, equalityDeleteFieldIds, overwriteValues);
     }
 
     private Table updateTableToV2(String tableName)
