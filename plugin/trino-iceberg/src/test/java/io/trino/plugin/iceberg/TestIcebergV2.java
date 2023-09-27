@@ -17,18 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
-import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
-import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
-import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -56,7 +48,6 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
-import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
@@ -87,10 +78,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -1000,12 +991,7 @@ public class TestIcebergV2
             Optional<List<String>> deleteFileColumns)
             throws Exception
     {
-        List<String> deleteColumns = deleteFileColumns.orElse(new ArrayList<>(overwriteValues.keySet()));
-        Schema deleteRowSchema = icebergTable.schema().select(deleteColumns);
-        List<Integer> equalityDeleteFieldIds = deleteColumns.stream()
-                .map(name -> deleteRowSchema.findField(name).fieldId())
-                .collect(toImmutableList());
-       writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, deleteRowSchema, equalityDeleteFieldIds);
+        writeEqualityDeleteForTable(icebergTable, metastoreDir, fileSystemFactory, partitionSpec, partitionData, overwriteValues, deleteFileColumns);
     }
 
     private void writeEqualityDeleteToNationTableWithDeleteColumns(
@@ -1017,29 +1003,7 @@ public class TestIcebergV2
             List<Integer> equalityDeleteFieldIds)
             throws Exception
     {
-        Path metadataDir = new Path(metastoreDir.toURI());
-        String deleteFileName = "delete_file_" + UUID.randomUUID();
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
-
-        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fileIo.newOutputFile(new Path(metadataDir, deleteFileName).toString()))
-                .forTable(icebergTable)
-                .rowSchema(deleteRowSchema)
-                .createWriterFunc(GenericParquetWriter::buildWriter)
-                .equalityFieldIds(equalityDeleteFieldIds)
-                .overwrite();
-        if (partitionSpec.isPresent() && partitionData.isPresent()) {
-            writerBuilder = writerBuilder
-                    .withSpec(partitionSpec.get())
-                    .withPartition(partitionData.get());
-        }
-        EqualityDeleteWriter<Record> writer = writerBuilder.buildEqualityWriter();
-
-        Record dataDelete = GenericRecord.create(deleteRowSchema);
-        try (Closeable ignored = writer) {
-            writer.write(dataDelete.copy(overwriteValues));
-        }
-
-        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+        writeEqualityDeleteForTableWithSchema(icebergTable, metastoreDir, fileSystemFactory, partitionSpec, partitionData, deleteRowSchema, equalityDeleteFieldIds, overwriteValues);
     }
 
     private Table updateTableToV2(String tableName)
@@ -1054,19 +1018,7 @@ public class TestIcebergV2
 
     private BaseTable loadTable(String tableName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
-        TrinoCatalog catalog = new TrinoHiveCatalog(
-                new CatalogName("hive"),
-                cachingHiveMetastore,
-                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
-                fileSystemFactory,
-                new TestingTypeManager(),
-                tableOperationsProvider,
-                false,
-                false,
-                false);
-        return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "hive", "tpch");
     }
 
     private List<String> getActiveFiles(String tableName)
