@@ -59,7 +59,6 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
-import io.trino.plugin.iceberg.util.DeleteManagerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -205,7 +204,6 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
-    private final DeleteManagerFactory deleteManagerFactory;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -220,7 +218,6 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.deleteManagerFactory = new DeleteManagerFactory();
     }
 
     @Override
@@ -245,11 +242,8 @@ public class IcebergPageSourceProvider
 
         Optional<DeleteManager> deleteManager = Optional.empty();
         if (!split.getDeletes().isEmpty()) {
-            deleteManager = Optional.of(deleteManagerFactory.getDeleteManager(tableHandle.getCatalog().getId(),
-                    tableHandle.getSchemaName(),
-                    tableHandle.getTableName(),
-                    tableHandle.getSnapshotId(),
-                    split.getPartitionDataJson()));
+            IcebergDynamicFilterProvider.IcebergDynamicFilter icebergDynamicFilter = (IcebergDynamicFilterProvider.IcebergDynamicFilter) dynamicFilter;
+            deleteManager = Optional.of(icebergDynamicFilter.getDeleteManager());
         }
 
         return createPageSource(

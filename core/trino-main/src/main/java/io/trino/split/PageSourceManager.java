@@ -20,6 +20,7 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.DynamicFilter;
@@ -27,6 +28,7 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -36,11 +38,14 @@ public class PageSourceManager
         implements PageSourceProvider
 {
     private final CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider;
+    private final CatalogServiceProvider<Optional<ConnectorDynamicFilterProvider>> dynamicFilterProvider;
 
     @Inject
-    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider)
+    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider,
+            CatalogServiceProvider<Optional<ConnectorDynamicFilterProvider>> dynamicFilterProvider)
     {
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.dynamicFilterProvider = requireNonNull(dynamicFilterProvider, "dynamicFilterProvider is null");
     }
 
     @Override
@@ -51,12 +56,16 @@ public class PageSourceManager
         CatalogHandle catalogHandle = split.getCatalogHandle();
 
         ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
+        Optional<ConnectorDynamicFilterProvider> filterProvider = dynamicFilterProvider.getService(catalogHandle);
         TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
         if (constraint.isNone()) {
             return new EmptyPageSource();
         }
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
+        }
+        if (filterProvider.isPresent()) {
+            dynamicFilter = filterProvider.get().getDynamicFilter(dynamicFilter, session.getQueryId());
         }
         return provider.createPageSource(
                 table.getTransaction(),

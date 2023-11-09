@@ -102,6 +102,7 @@ public class TestIcebergDataFileOperations
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.getCoordinator().addConnectorEventListeners();
 
         queryRunner.execute("CREATE SCHEMA test_schema");
 

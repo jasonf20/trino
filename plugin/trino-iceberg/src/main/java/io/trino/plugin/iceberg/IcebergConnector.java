@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
@@ -24,6 +25,7 @@ import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -32,6 +34,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -60,6 +63,8 @@ public class IcebergConnector
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
+    private final ConnectorDynamicFilterProvider dynamicFilterProvider;
+    private final EventListener eventListener;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -79,6 +84,7 @@ public class IcebergConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
+            ConnectorDynamicFilterProvider connectorDynamicFilterProvider,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -88,7 +94,8 @@ public class IcebergConnector
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
-            FunctionProvider functionProvider)
+            FunctionProvider functionProvider,
+            EventListener eventListener)
     {
         this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -97,6 +104,7 @@ public class IcebergConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        this.dynamicFilterProvider = requireNonNull(connectorDynamicFilterProvider, "connectorDynamicFilterProvider is null");
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
@@ -109,6 +117,7 @@ public class IcebergConnector
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.eventListener = requireNonNull(eventListener, "eventListener is null");
     }
 
     @Override
@@ -148,6 +157,18 @@ public class IcebergConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
+    }
+
+    @Override
+    public ConnectorDynamicFilterProvider getDynamicFilterProvider()
+    {
+        return dynamicFilterProvider;
+    }
+
+    @Override
+    public Iterable<EventListener> getEventListeners()
+    {
+        return Iterables.concat(Connector.super.getEventListeners(), ImmutableList.of(eventListener));
     }
 
     @Override

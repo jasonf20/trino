@@ -66,7 +66,6 @@ public class QueryContext
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
-
     private volatile boolean memoryLimitsInitialized;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance

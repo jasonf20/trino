@@ -27,6 +27,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -82,6 +83,7 @@ public class ConnectorServices
     private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
     private final Optional<ConnectorIndexProvider> indexProvider;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
+    private final Optional<ConnectorDynamicFilterProvider> dynamicFilterProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final List<EventListener> eventListeners;
     private final Map<String, PropertyMetadata<?>> sessionProperties;
@@ -172,6 +174,14 @@ public class ConnectorServices
         catch (UnsupportedOperationException ignored) {
         }
         this.partitioningProvider = Optional.ofNullable(partitioningProvider);
+
+        ConnectorDynamicFilterProvider filterProvider = null;
+        try {
+            filterProvider = connector.getDynamicFilterProvider();
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+        this.dynamicFilterProvider = Optional.ofNullable(filterProvider);
 
         ConnectorAccessControl accessControl = null;
         try {
@@ -279,6 +289,11 @@ public class ConnectorServices
     public Optional<ConnectorNodePartitioningProvider> getPartitioningProvider()
     {
         return partitioningProvider;
+    }
+
+    public Optional<ConnectorDynamicFilterProvider> getDynamicFilterProvider()
+    {
+        return dynamicFilterProvider;
     }
 
     public SecurityManagement getSecurityManagement()

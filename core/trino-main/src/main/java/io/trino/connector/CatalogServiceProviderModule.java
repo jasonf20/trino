@@ -31,6 +31,7 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -83,6 +84,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorNodePartitioningProvider> createNodePartitioningProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("node partitioning provider", connectorServicesProvider, connector -> connector.getPartitioningProvider().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<Optional<ConnectorDynamicFilterProvider>> createDynamicFilterProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("dynamic filter provider", connectorServicesProvider, ConnectorServices::getDynamicFilterProvider);
     }
 
     @Provides
