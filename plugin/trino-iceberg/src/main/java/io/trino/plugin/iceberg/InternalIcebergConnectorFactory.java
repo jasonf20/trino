@@ -26,9 +26,11 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorDynamicFilterProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.trino.plugin.base.classloader.ClassLoaderSafeEventListener;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
@@ -44,11 +46,13 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -116,6 +120,7 @@ public final class InternalIcebergConnectorFactory
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
+            ConnectorDynamicFilterProvider connectorDynamicFilterProvider = injector.getInstance(ConnectorDynamicFilterProvider.class);
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             IcebergMaterializedViewAdditionalProperties materializedViewAdditionalProperties = injector.getInstance(IcebergMaterializedViewAdditionalProperties.class);
@@ -132,6 +137,8 @@ public final class InternalIcebergConnectorFactory
 
             checkState(!injector.getBindings().containsKey(Key.get(HiveConfig.class)), "HiveConfig should not be bound");
 
+            EventListener eventListener = injector.getInstance(EventListener.class);
+
             return new IcebergConnector(
                     injector,
                     lifeCycleManager,
@@ -140,6 +147,7 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
+                    new ClassLoaderSafeConnectorDynamicFilterProvider(connectorDynamicFilterProvider, classLoader),
                     sessionPropertiesProviders,
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
@@ -149,7 +157,8 @@ public final class InternalIcebergConnectorFactory
                     procedures,
                     tableProcedures,
                     tableFunctions,
-                    functionProvider);
+                    functionProvider,
+                    new ClassLoaderSafeEventListener(eventListener, classLoader));
         }
     }
 }

@@ -232,6 +232,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createDynamicFilterProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createMaterializedViewPropertyManager;
@@ -412,7 +413,7 @@ public class LocalQueryRunner
                 nodeSchedulerConfig,
                 optimizerConfig));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
-        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
+        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager), createDynamicFilterProvider(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
