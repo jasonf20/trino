@@ -41,6 +41,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -597,6 +598,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    ConnectorDynamicFilterProvider.DEFAULT,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
@@ -619,6 +621,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    ConnectorDynamicFilterProvider.DEFAULT,
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,

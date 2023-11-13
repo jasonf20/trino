@@ -24,6 +24,7 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
@@ -169,6 +170,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
                     (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
+                    ConnectorDynamicFilterProvider.DEFAULT,
                     () -> cursorProcessor,
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,

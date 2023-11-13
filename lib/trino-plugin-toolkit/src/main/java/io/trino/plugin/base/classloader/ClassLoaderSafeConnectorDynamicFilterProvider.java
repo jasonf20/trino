@@ -14,10 +14,12 @@
 package io.trino.plugin.base.classloader;
 
 import com.google.inject.Inject;
-import io.trino.spi.QueryId;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.DynamicFilter;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,26 +37,10 @@ public final class ClassLoaderSafeConnectorDynamicFilterProvider
     }
 
     @Override
-    public void queryCreated(QueryId queryId)
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.queryCreated(queryId);
-        }
-    }
-
-    @Override
-    public void queryCompleted(QueryId queryId)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.queryCreated(queryId);
-        }
-    }
-
-    @Override
-    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, QueryId queryId)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDynamicFilter(baseFilter, queryId);
+            return delegate.getDynamicFilter(baseFilter, catalogHandle, connectorQueryState);
         }
     }
 }

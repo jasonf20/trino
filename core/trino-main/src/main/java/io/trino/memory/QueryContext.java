@@ -66,6 +66,7 @@ public class QueryContext
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Object> connectorQueryState = new ConcurrentHashMap<>();
     private volatile boolean memoryLimitsInitialized;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -282,6 +283,11 @@ public class QueryContext
     {
         TaskContext taskContext = taskContexts.get(taskId);
         return verifyNotNull(taskContext, "task does not exist");
+    }
+
+    public ConcurrentHashMap<String, Object> getConnectorQueryState()
+    {
+        return connectorQueryState;
     }
 
     private static class QueryMemoryReservationHandler

@@ -14,67 +14,38 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.delete.DeleteManager;
-import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.text.MessageFormat;
-import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
 
 public class IcebergDynamicFilterProvider
         implements ConnectorDynamicFilterProvider
 {
-    private static final Logger log = Logger.get(IcebergDynamicFilterProvider.class);
-
-    private final HashMap<QueryId, DeleteManager> deleteManagers;
+    private static final String STATE_KEY = "DELETE_MANAGER";
 
     @Inject
     public IcebergDynamicFilterProvider()
     {
-        this.deleteManagers = new HashMap<>();
+    }
+
+    private DeleteManager getDeleteManager(ConcurrentHashMap<String, Object> connectorQueryState)
+    {
+        return (DeleteManager) connectorQueryState.computeIfAbsent(STATE_KEY, key -> new DeleteManager());
     }
 
     @Override
-    public void queryCreated(QueryId queryId)
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
     {
-        synchronized (deleteManagers) {
-            deleteManagers.put(queryId, new DeleteManager());
-        }
-    }
-
-    @Override
-    public void queryCompleted(QueryId queryId)
-    {
-        synchronized (deleteManagers) {
-            deleteManagers.remove(queryId);
-        }
-    }
-
-    private DeleteManager getDeleteManager(QueryId queryId)
-    {
-        DeleteManager result = null;
-        synchronized (deleteManagers) {
-            result = deleteManagers.get(queryId);
-        }
-        if (result == null) {
-            log.warn(MessageFormat.format("No delete manager found for query id: {0}. Falling back to new delete manager which may reload delete files", queryId));
-            return new DeleteManager();
-        }
-        return result;
-    }
-
-    @Override
-    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, QueryId queryId)
-    {
-        return new IcebergDynamicFilter(baseFilter, getDeleteManager(queryId));
+        return new IcebergDynamicFilter(baseFilter, getDeleteManager(connectorQueryState));
     }
 
     static class IcebergDynamicFilter
