@@ -13,19 +13,13 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.QueryId;
+import java.util.concurrent.ConcurrentHashMap;
 
 public interface ConnectorDynamicFilterProvider
 {
-    default void queryCreated(QueryId queryId)
-    {
-    }
+    ConnectorDynamicFilterProvider DEFAULT = new ConnectorDynamicFilterProvider() {};
 
-    default void queryCompleted(QueryId queryId)
-    {
-    }
-
-    default DynamicFilter getDynamicFilter(DynamicFilter baseFilter, QueryId queryId)
+    default DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
     {
         return baseFilter;
     }

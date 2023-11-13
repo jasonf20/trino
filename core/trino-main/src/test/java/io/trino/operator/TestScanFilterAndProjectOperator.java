@@ -31,6 +31,7 @@ import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
@@ -125,6 +126,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -167,6 +169,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -212,6 +215,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -246,6 +250,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -297,6 +302,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -362,6 +368,7 @@ public class TestScanFilterAndProjectOperator
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,

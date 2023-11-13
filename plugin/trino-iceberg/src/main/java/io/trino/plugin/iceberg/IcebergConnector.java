@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
@@ -34,7 +33,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -64,7 +62,6 @@ public class IcebergConnector
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final ConnectorDynamicFilterProvider dynamicFilterProvider;
-    private final EventListener eventListener;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -94,8 +91,7 @@ public class IcebergConnector
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
-            FunctionProvider functionProvider,
-            EventListener eventListener)
+            FunctionProvider functionProvider)
     {
         this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -117,7 +113,6 @@ public class IcebergConnector
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
-        this.eventListener = requireNonNull(eventListener, "eventListener is null");
     }
 
     @Override
@@ -163,12 +158,6 @@ public class IcebergConnector
     public ConnectorDynamicFilterProvider getDynamicFilterProvider()
     {
         return dynamicFilterProvider;
-    }
-
-    @Override
-    public Iterable<EventListener> getEventListeners()
-    {
-        return Iterables.concat(Connector.super.getEventListeners(), ImmutableList.of(eventListener));
     }
 
     @Override

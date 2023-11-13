@@ -27,6 +27,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
@@ -171,6 +172,7 @@ public class TestDriver
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
+                ConnectorDynamicFilterProvider.DEFAULT,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
@@ -487,7 +489,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, ConnectorDynamicFilterProvider.DEFAULT, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -507,7 +509,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, ConnectorDynamicFilterProvider.DEFAULT, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -532,7 +534,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, ConnectorDynamicFilterProvider.DEFAULT, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override

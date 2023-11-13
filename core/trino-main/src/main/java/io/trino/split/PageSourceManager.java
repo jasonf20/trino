@@ -29,13 +29,14 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceManager
-        implements PageSourceProvider
+        implements PageSourceProvider, ConnectorDynamicFilterProvider
 {
     private final CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider;
     private final CatalogServiceProvider<Optional<ConnectorDynamicFilterProvider>> dynamicFilterProvider;
@@ -61,11 +62,8 @@ public class PageSourceManager
         if (constraint.isNone()) {
             return new EmptyPageSource();
         }
-        if (!isAllowPushdownIntoConnectors(session)) {
+        if (!isAllowPushdownIntoConnectors(session) && filterProvider.isEmpty()) {
             dynamicFilter = DynamicFilter.EMPTY;
-        }
-        if (filterProvider.isPresent()) {
-            dynamicFilter = filterProvider.get().getDynamicFilter(dynamicFilter, session.getQueryId());
         }
         return provider.createPageSource(
                 table.getTransaction(),
@@ -74,5 +72,13 @@ public class PageSourceManager
                 table.getConnectorHandle(),
                 columns,
                 dynamicFilter);
+    }
+
+    @Override
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
+    {
+        return dynamicFilterProvider.getService(catalogHandle)
+                .map(provider -> provider.getDynamicFilter(baseFilter, catalogHandle, connectorQueryState))
+                .orElse(baseFilter);
     }
 }
