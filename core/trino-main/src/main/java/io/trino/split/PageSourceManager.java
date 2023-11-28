@@ -29,7 +29,6 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -75,10 +74,13 @@ public class PageSourceManager
     }
 
     @Override
-    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle)
     {
+        if (catalogHandle == null) {
+            return baseFilter;
+        }
         return dynamicFilterProvider.getService(catalogHandle)
-                .map(provider -> provider.getDynamicFilter(baseFilter, catalogHandle, connectorQueryState))
+                .map(provider -> provider.getDynamicFilter(baseFilter, catalogHandle))
                 .orElse(baseFilter);
     }
 }

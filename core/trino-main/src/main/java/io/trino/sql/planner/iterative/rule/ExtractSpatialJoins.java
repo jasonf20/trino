@@ -74,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -472,7 +471,7 @@ public class ExtractSpatialJoins
 
         Optional<KdbTree> kdbTree = Optional.empty();
         try (SplitSource splitSource = splitManager.getSplits(session, session.getQuerySpan(), tableHandle, DynamicFilter.EMPTY, alwaysTrue())) {
-            DynamicFilter connectorDynamicFilter = pageSourceManager.getDynamicFilter(DynamicFilter.EMPTY, tableHandle.getCatalogHandle(), new ConcurrentHashMap<>());
+            DynamicFilter connectorDynamicFilter = pageSourceManager.getDynamicFilter(DynamicFilter.EMPTY, tableHandle.getCatalogHandle());
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
                 List<Split> splits = splitBatch.getSplits();

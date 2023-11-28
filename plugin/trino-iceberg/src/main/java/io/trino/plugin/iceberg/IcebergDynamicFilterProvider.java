@@ -23,29 +23,21 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Objects.requireNonNull;
 
 public class IcebergDynamicFilterProvider
         implements ConnectorDynamicFilterProvider
 {
-    private static final String STATE_KEY = "DELETE_MANAGER";
-
     @Inject
     public IcebergDynamicFilterProvider()
     {
     }
 
-    private DeleteManager getDeleteManager(ConcurrentHashMap<String, Object> connectorQueryState)
-    {
-        return (DeleteManager) connectorQueryState.computeIfAbsent(STATE_KEY, key -> new DeleteManager());
-    }
-
     @Override
-    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle)
     {
-        return new IcebergDynamicFilter(baseFilter, getDeleteManager(connectorQueryState));
+        return new IcebergDynamicFilter(baseFilter, new DeleteManager());
     }
 
     static class IcebergDynamicFilter
