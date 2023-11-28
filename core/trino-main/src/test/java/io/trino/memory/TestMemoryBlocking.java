@@ -28,7 +28,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
@@ -107,7 +106,6 @@ public class TestMemoryBlocking
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .build()),
-                ConnectorDynamicFilterProvider.DEFAULT,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);

@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.memory.QueryContext;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -34,7 +33,6 @@ import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -85,12 +83,11 @@ public class ScanFilterAndProjectOperator
     private Metrics metrics = Metrics.EMPTY;
 
     private ScanFilterAndProjectOperator(
-            OperatorContext operatorContext,
+            Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
             WorkProcessor<Split> splits,
             PageSourceProvider pageSourceProvider,
-            ConnectorDynamicFilterProvider connectorDynamicFilterProvider,
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
             TableHandle table,
@@ -102,10 +99,9 @@ public class ScanFilterAndProjectOperator
     {
         pages = splits.flatTransform(
                 new SplitToPages(
-                        operatorContext,
+                        session,
                         yieldSignal,
                         pageSourceProvider,
-                        connectorDynamicFilterProvider,
                         cursorProcessor,
                         pageProcessor,
                         table,
@@ -194,10 +190,9 @@ public class ScanFilterAndProjectOperator
     private class SplitToPages
             implements WorkProcessor.Transformation<Split, WorkProcessor<Page>>
     {
-        final OperatorContext operatorContext;
+        final Session session;
         final DriverYieldSignal yieldSignal;
         final PageSourceProvider pageSourceProvider;
-        final ConnectorDynamicFilterProvider dynamicFilterProvider;
         final CursorProcessor cursorProcessor;
         final PageProcessor pageProcessor;
         final TableHandle table;
@@ -212,10 +207,9 @@ public class ScanFilterAndProjectOperator
         final int minOutputPageRowCount;
 
         SplitToPages(
-                OperatorContext operatorContext,
+                Session session,
                 DriverYieldSignal yieldSignal,
                 PageSourceProvider pageSourceProvider,
-                ConnectorDynamicFilterProvider dynamicFilterProvider,
                 CursorProcessor cursorProcessor,
                 PageProcessor pageProcessor,
                 TableHandle table,
@@ -226,10 +220,9 @@ public class ScanFilterAndProjectOperator
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount)
         {
-            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.session = requireNonNull(session, "session is null");
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-            this.dynamicFilterProvider = requireNonNull(dynamicFilterProvider, "dynamicFilterProvider is null");
             this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.table = requireNonNull(table, "table is null");
@@ -263,9 +256,7 @@ public class ScanFilterAndProjectOperator
                 source = new EmptyPageSource();
             }
             else {
-                QueryContext queryContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext().getQueryContext();
-                DynamicFilter connectorDynamicFilter = dynamicFilterProvider.getDynamicFilter(dynamicFilter, split.getCatalogHandle(), queryContext.getConnectorQueryState());
-                source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, connectorDynamicFilter);
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             }
 
             if (source instanceof RecordPageSource) {
@@ -279,14 +270,14 @@ public class ScanFilterAndProjectOperator
         WorkProcessor<Page> processColumnSource()
         {
             return WorkProcessor
-                    .create(new RecordCursorToPages(operatorContext.getSession(), yieldSignal, cursorProcessor, types, pageSourceMemoryContext, outputMemoryContext))
+                    .create(new RecordCursorToPages(session, yieldSignal, cursorProcessor, types, pageSourceMemoryContext, outputMemoryContext))
                     .yielding(yieldSignal::isSet)
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
 
         WorkProcessor<Page> processPageSource()
         {
-            ConnectorSession connectorSession = operatorContext.getSession().toConnectorSession();
+            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
@@ -422,7 +413,6 @@ public class ScanFilterAndProjectOperator
         private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
-        private final ConnectorDynamicFilterProvider dynamicFilterProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
@@ -436,7 +426,6 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                ConnectorDynamicFilterProvider dynamicFilterProvider,
                 Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
                 TableHandle table,
@@ -452,7 +441,6 @@ public class ScanFilterAndProjectOperator
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-            this.dynamicFilterProvider = requireNonNull(dynamicFilterProvider, "dynamicFilterProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
@@ -501,12 +489,11 @@ public class ScanFilterAndProjectOperator
                 WorkProcessor<Split> splits)
         {
             return new ScanFilterAndProjectOperator(
-                    operatorContext,
+                    operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
                     splits,
                     pageSourceProvider,
-                    dynamicFilterProvider,
                     cursorProcessor.get(),
                     pageProcessor.get(),
                     table,

@@ -19,8 +19,6 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.DynamicFilter;
 
-import java.util.concurrent.ConcurrentHashMap;
-
 import static java.util.Objects.requireNonNull;
 
 public final class ClassLoaderSafeConnectorDynamicFilterProvider
@@ -37,10 +35,10 @@ public final class ClassLoaderSafeConnectorDynamicFilterProvider
     }
 
     @Override
-    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle, ConcurrentHashMap<String, Object> connectorQueryState)
+    public DynamicFilter getDynamicFilter(DynamicFilter baseFilter, CatalogHandle catalogHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDynamicFilter(baseFilter, catalogHandle, connectorQueryState);
+            return delegate.getDynamicFilter(baseFilter, catalogHandle);
         }
     }
 }
