@@ -24,7 +24,6 @@ import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
-import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -61,7 +60,6 @@ public class IcebergConnector
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
-    private final ConnectorDynamicFilterProvider dynamicFilterProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -81,7 +79,6 @@ public class IcebergConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
-            ConnectorDynamicFilterProvider connectorDynamicFilterProvider,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -100,7 +97,6 @@ public class IcebergConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.dynamicFilterProvider = requireNonNull(connectorDynamicFilterProvider, "connectorDynamicFilterProvider is null");
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
@@ -152,12 +148,6 @@ public class IcebergConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
-    }
-
-    @Override
-    public ConnectorDynamicFilterProvider getDynamicFilterProvider()
-    {
-        return dynamicFilterProvider;
     }
 
     @Override

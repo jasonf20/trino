@@ -35,7 +35,6 @@ import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
 import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
 import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
-import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -74,7 +73,6 @@ public class IcebergModule
         binder.bind(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorDynamicFilterProvider.class).to(IcebergDynamicFilterProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);

@@ -242,8 +242,7 @@ public class IcebergPageSourceProvider
 
         Optional<DeleteManager> deleteManager = Optional.empty();
         if (!split.getDeletes().isEmpty()) {
-            IcebergDynamicFilterProvider.IcebergDynamicFilter icebergDynamicFilter = (IcebergDynamicFilterProvider.IcebergDynamicFilter) dynamicFilter;
-            deleteManager = Optional.of(icebergDynamicFilter.getDeleteManager());
+            deleteManager = Optional.of(new DeleteManager());
         }
 
         return createPageSource(

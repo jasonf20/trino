@@ -133,8 +133,7 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()),
-                CatalogServiceProvider.singleton(CATALOG_HANDLE, Optional.empty()));
+        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()));
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();

@@ -157,7 +157,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorDynamicFilterProvider;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -2033,8 +2032,8 @@ public class LocalExecutionPlanner
             Optional<Expression> staticFilters = filterExpression.flatMap(this::getStaticFilter);
             DynamicFilter dynamicFilter = filterExpression
                     .filter(expression -> sourceNode instanceof TableScanNode)
-                    .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context, pageSourceManager))
-                    .orElse(pageSourceManager.getDynamicFilter(DynamicFilter.EMPTY, table != null ? table.getCatalogHandle() : null));
+                    .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
+                    .orElse(DynamicFilter.EMPTY);
 
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -2114,7 +2113,7 @@ public class LocalExecutionPlanner
                 columns.add(node.getAssignments().get(symbol));
             }
 
-            DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context, pageSourceManager);
+            DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns, dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
@@ -2132,25 +2131,22 @@ public class LocalExecutionPlanner
         private DynamicFilter getDynamicFilter(
                 TableScanNode tableScanNode,
                 Expression filterExpression,
-                LocalExecutionPlanContext context,
-                ConnectorDynamicFilterProvider dynamicFilterProvider)
+                LocalExecutionPlanContext context)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
             List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
             CatalogHandle catalogHandle = tableScanNode.getTable() != null ? tableScanNode.getTable().getCatalogHandle() : null;
             if (dynamicFilters.isEmpty()) {
-                return dynamicFilterProvider.getDynamicFilter(DynamicFilter.EMPTY, catalogHandle);
+                return DynamicFilter.EMPTY;
             }
 
             log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
             context.registerCoordinatorDynamicFilters(dynamicFilters);
-            DynamicFilter baseFilter = context.getDynamicFiltersCollector().createDynamicFilter(
+            return context.getDynamicFiltersCollector().createDynamicFilter(
                     dynamicFilters,
                     tableScanNode.getAssignments(),
                     context.getTypes(),
                     plannerContext);
-
-            return dynamicFilterProvider.getDynamicFilter(baseFilter, catalogHandle);
         }
 
         @Override
