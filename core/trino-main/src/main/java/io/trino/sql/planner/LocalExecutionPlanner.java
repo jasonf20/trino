@@ -1669,7 +1669,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
+            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle()).getStatefulInstance();
 
             if (node.getSource().isEmpty()) {
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(

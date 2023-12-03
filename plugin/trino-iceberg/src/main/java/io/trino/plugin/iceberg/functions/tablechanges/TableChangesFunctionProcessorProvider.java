@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 import com.google.inject.Inject;
 import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
+import io.trino.plugin.iceberg.StatefulIcebergPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -36,16 +37,30 @@ public class TableChangesFunctionProcessorProvider
     }
 
     @Override
+    public TableFunctionProcessorProvider getStatefulInstance()
+    {
+        StatefulIcebergPageSourceProvider statefulInstance = (StatefulIcebergPageSourceProvider) icebergPageSourceProvider.getStatefulInstance();
+        return new TableFunctionProcessorProvider()
+        {
+            @Override
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            {
+                return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
+                        session,
+                        (TableChangesFunctionHandle) handle,
+                        (TableChangesSplit) split,
+                        statefulInstance),
+                        getClass().getClassLoader());
+            }
+        };
+    }
+
+    @Override
     public TableFunctionSplitProcessor getSplitProcessor(
             ConnectorSession session,
             ConnectorTableFunctionHandle handle,
             ConnectorSplit split)
     {
-        return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
-                session,
-                (TableChangesFunctionHandle) handle,
-                (TableChangesSplit) split,
-                icebergPageSourceProvider),
-                getClass().getClassLoader());
+        return getStatefulInstance().getSplitProcessor(session, handle, split);
     }
 }

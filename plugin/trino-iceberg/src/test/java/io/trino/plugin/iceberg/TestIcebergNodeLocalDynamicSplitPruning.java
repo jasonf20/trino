@@ -41,6 +41,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -193,12 +194,12 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
+        ConnectorPageSourceProvider provider = new IcebergPageSourceProvider(
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER).getStatefulInstance();
 
         return provider.createPageSource(
                 transaction,

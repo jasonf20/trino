@@ -20,6 +20,11 @@ import io.trino.spi.connector.ConnectorSplit;
 @Experimental(eta = "2023-07-31")
 public interface TableFunctionProcessorProvider
 {
+    default TableFunctionProcessorProvider getStatefulInstance()
+    {
+        return this;
+    }
+
     /**
      * This method returns a {@code TableFunctionDataProcessor}. All the necessary information collected during analysis is available
      * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each partition processed by the table function.

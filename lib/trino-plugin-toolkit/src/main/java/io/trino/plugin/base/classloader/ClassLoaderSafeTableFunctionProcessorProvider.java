@@ -36,6 +36,14 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     }
 
     @Override
+    public TableFunctionProcessorProvider getStatefulInstance()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return new ClassLoaderSafeTableFunctionProcessorProvider(delegate.getStatefulInstance(), classLoader);
+        }
+    }
+
+    @Override
     public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

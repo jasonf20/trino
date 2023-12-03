@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.PartitionData;
+import io.trino.plugin.iceberg.StatefulIcebergPageSourceProvider;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -68,7 +68,7 @@ public class TableChangesFunctionProcessor
             ConnectorSession session,
             TableChangesFunctionHandle functionHandle,
             TableChangesSplit split,
-            IcebergPageSourceProvider icebergPageSourceProvider)
+            StatefulIcebergPageSourceProvider icebergPageSourceProvider)
     {
         requireNonNull(session, "session is null");
         requireNonNull(functionHandle, "functionHandle is null");
@@ -128,8 +128,7 @@ public class TableChangesFunctionProcessor
                 split.partitionDataJson(),
                 split.fileFormat(),
                 0,
-                functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
-                Optional.empty());
+                functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;

@@ -18,6 +18,14 @@ import java.util.List;
 public interface ConnectorPageSourceProvider
 {
     /**
+     * @return If this page source provider is stateful per task execution this method should return a newly initialized stateful copy of the provider
+     */
+    default ConnectorPageSourceProvider getStatefulInstance()
+    {
+        return this;
+    }
+
+    /**
      * @param columns columns that should show up in the output page, in this order
      * @param dynamicFilter optionally remove rows that don't satisfy this predicate
      */
