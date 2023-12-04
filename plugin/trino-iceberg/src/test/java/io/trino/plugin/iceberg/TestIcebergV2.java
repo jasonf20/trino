@@ -60,6 +60,7 @@ import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -427,6 +428,35 @@ public class TestIcebergV2
                 Optional.of(ImmutableList.of("regionkey")));
 
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEqualityDeletesAcrossPartitions()
+            throws Exception
+    {
+        String tableName = "test_equality_deletes_across_partitions_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['partition']) AS SELECT 'part_1' as partition, * FROM tpch.tiny.nation", 25);
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'part_2' as partition, * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        PartitionData partitionData1 = PartitionData.fromJson("{\"partitionValues\":[\"part_1\"]}", new Type[] {Types.StringType.get()});
+        PartitionData partitionData2 = PartitionData.fromJson("{\"partitionValues\":[\"part_2\"]}", new Type[] {Types.StringType.get()});
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.of(icebergTable.spec()),
+                Optional.of(partitionData1),
+                ImmutableMap.of("regionkey", 1L),
+                Optional.of(ImmutableList.of("regionkey")));
+        // Delete from both partitions so internal code doesn't skip all deletion logic for second partition invalidating this test
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.of(icebergTable.spec()),
+                Optional.of(partitionData2),
+                ImmutableMap.of("regionkey", 2L),
+                Optional.of(ImmutableList.of("regionkey")));
+
+        ImmutableList.copyOf(icebergTable.newScan().planFiles());
+        assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM nation WHERE regionkey <> 1 UNION ALL select 'part_2', * FROM NATION where regionkey <> 2");
         assertUpdate("DROP TABLE " + tableName);
     }
 

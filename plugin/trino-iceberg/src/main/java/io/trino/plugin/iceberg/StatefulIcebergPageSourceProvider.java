@@ -92,6 +92,7 @@ import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
+import org.apache.iceberg.util.StructLikeMap;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -201,22 +202,22 @@ public class StatefulIcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
-    private final DeleteManager deleteManager;
+    private final Object deleteManagersLock;
+    private StructLikeMap<DeleteManager> deleteManagers;
 
     public StatefulIcebergPageSourceProvider(
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager,
-            DeleteManager deleteManager)
+            TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.deleteManager = requireNonNull(deleteManager, "deleteManager is null");
+        this.deleteManagersLock = new Object();
     }
 
     @Override
@@ -370,7 +371,7 @@ public class StatefulIcebergPageSourceProvider
                 .orElse(requiredColumns);
 
         Supplier<Optional<RowPredicate>> deletePredicate =
-                Suppliers.memoize(() -> deleteManager.getDeletePredicate(tableSchema,
+                Suppliers.memoize(() -> getDeleteManager(partitionSpec, partitionData).getDeletePredicate(tableSchema,
                         path,
                         dataSequenceNumber,
                         deletes,
@@ -386,6 +387,16 @@ public class StatefulIcebergPageSourceProvider
                 dataPageSource.get(),
                 projectionsAdapter,
                 deletePredicate);
+    }
+
+    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
+    {
+        synchronized (deleteManagersLock) {
+            if (deleteManagers == null) {
+                deleteManagers = StructLikeMap.create(partitionSpec.partitionType());
+            }
+            return deleteManagers.computeIfAbsent(partitionData, partition -> new DeleteManager());
+        }
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)

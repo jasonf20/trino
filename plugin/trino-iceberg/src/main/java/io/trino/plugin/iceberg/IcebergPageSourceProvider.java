@@ -62,7 +62,7 @@ public class IcebergPageSourceProvider
     @Override
     public ConnectorPageSourceProvider getStatefulInstance()
     {
-        return new StatefulIcebergPageSourceProvider(fileSystemFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, new DeleteManager());
+        return new StatefulIcebergPageSourceProvider(fileSystemFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager);
     }
 
     @Override

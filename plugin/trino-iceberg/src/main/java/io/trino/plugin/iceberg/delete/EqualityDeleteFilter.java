@@ -146,7 +146,7 @@ public final class EqualityDeleteFilter
         if (!hasRequiredColumns) {
             // If we don't have all the required columns this delete filter can't be applied.
             // The iceberg split manager is responsible for making sure that we have all the required columns when a delete filter should be applied
-            return ((page, position) -> true);
+            return (page, position) -> true;
         }
         else {
             StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
