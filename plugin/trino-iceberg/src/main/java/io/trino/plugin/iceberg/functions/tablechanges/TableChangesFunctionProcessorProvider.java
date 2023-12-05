@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 import com.google.inject.Inject;
 import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
+import io.trino.plugin.iceberg.StateInstantiatingIcebergPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -27,12 +28,31 @@ import static java.util.Objects.requireNonNull;
 public class TableChangesFunctionProcessorProvider
         implements TableFunctionProcessorProvider
 {
-    private final IcebergPageSourceProvider icebergPageSourceProvider;
+    private final StateInstantiatingIcebergPageSourceProvider icebergPageSourceProvider;
 
     @Inject
-    public TableChangesFunctionProcessorProvider(IcebergPageSourceProvider icebergPageSourceProvider)
+    public TableChangesFunctionProcessorProvider(StateInstantiatingIcebergPageSourceProvider icebergPageSourceProvider)
     {
         this.icebergPageSourceProvider = requireNonNull(icebergPageSourceProvider, "icebergPageSourceProvider is null");
+    }
+
+    @Override
+    public TableFunctionProcessorProvider getStatefulInstance()
+    {
+        IcebergPageSourceProvider statefulInstance = (IcebergPageSourceProvider) icebergPageSourceProvider.getStatefulInstance();
+        return new TableFunctionProcessorProvider()
+        {
+            @Override
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            {
+                return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
+                        session,
+                        (TableChangesFunctionHandle) handle,
+                        (TableChangesSplit) split,
+                        statefulInstance),
+                        getClass().getClassLoader());
+            }
+        };
     }
 
     @Override
@@ -41,11 +61,6 @@ public class TableChangesFunctionProcessorProvider
             ConnectorTableFunctionHandle handle,
             ConnectorSplit split)
     {
-        return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
-                session,
-                (TableChangesFunctionHandle) handle,
-                (TableChangesSplit) split,
-                icebergPageSourceProvider),
-                getClass().getClassLoader());
+        return getStatefulInstance().getSplitProcessor(session, handle, split);
     }
 }

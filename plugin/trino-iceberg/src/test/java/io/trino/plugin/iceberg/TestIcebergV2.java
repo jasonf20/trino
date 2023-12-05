@@ -61,6 +61,7 @@ import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -331,6 +332,38 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeleteAppliesOnlyToCorrectDataVersion()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+
+        for (int i = 1; i < 3; i++) {
+            writeEqualityDeleteToNationTable(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+        }
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+
+        // Reinsert the data for regionkey = 1. This should insert the data with a larger datasequence number and the delete file should not apply to it anymore.
+        // Also delete something again so that the split has deletes and the delete logic is activated.
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", 5);
+        writeEqualityDeleteToNationTable(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("regionkey", Integer.toUnsignedLong(3)));
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE (regionkey != 2L AND regionkey != 3L)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testMultipleEqualityDeletesWithEquivalentSchemas()
             throws Exception
     {
@@ -394,6 +427,35 @@ public class TestIcebergV2
                 Optional.of(ImmutableList.of("regionkey")));
 
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEqualityDeletesAcrossPartitions()
+            throws Exception
+    {
+        String tableName = "test_equality_deletes_across_partitions_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['partition']) AS SELECT 'part_1' as partition, * FROM tpch.tiny.nation", 25);
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'part_2' as partition, * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        PartitionData partitionData1 = PartitionData.fromJson("{\"partitionValues\":[\"part_1\"]}", new Type[] {Types.StringType.get()});
+        PartitionData partitionData2 = PartitionData.fromJson("{\"partitionValues\":[\"part_2\"]}", new Type[] {Types.StringType.get()});
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.of(icebergTable.spec()),
+                Optional.of(partitionData1),
+                ImmutableMap.of("regionkey", 1L),
+                Optional.of(ImmutableList.of("regionkey")));
+        // Delete from both partitions so internal code doesn't skip all deletion logic for second partition invalidating this test
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.of(icebergTable.spec()),
+                Optional.of(partitionData2),
+                ImmutableMap.of("regionkey", 2L),
+                Optional.of(ImmutableList.of("regionkey")));
+
+        ImmutableList.copyOf(icebergTable.newScan().planFiles());
+        assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM nation WHERE regionkey <> 1 UNION ALL select 'part_2', * FROM NATION where regionkey <> 2");
         assertUpdate("DROP TABLE " + tableName);
     }
 

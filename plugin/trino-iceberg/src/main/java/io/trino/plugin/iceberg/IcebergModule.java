@@ -69,8 +69,8 @@ public class IcebergModule
         newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
                 .setDefault().toInstance(true);
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(StateInstantiatingIcebergPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(StateInstantiatingIcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
