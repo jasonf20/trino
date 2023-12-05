@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.PageConsumerOperator;
 import io.trino.testing.TestingTaskContext;
+import io.trino.util.FixedPageSourceProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,13 +100,13 @@ public class TestMemoryBlocking
         List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
-                        .build()),
+                        .build())),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);

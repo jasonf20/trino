@@ -68,10 +68,10 @@ public class TableScanOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.pageSourceProvider = pageSourceProvider.getStatefulInstance(table.getCatalogHandle());
         }
 
         @Override

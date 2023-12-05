@@ -44,26 +44,46 @@ public class PageSourceManager
     }
 
     @Override
+    public PageSourceProvider getStatefulInstance(CatalogHandle catalogHandle)
+    {
+        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
+        ConnectorPageSourceProvider statefulInstance = provider.getStatefulInstance();
+        return new PageSourceProvider()
+        {
+            @Override
+            public PageSourceProvider getStatefulInstance(CatalogHandle catalogHandle)
+            {
+                return this;
+            }
+
+            @Override
+            public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+            {
+                requireNonNull(columns, "columns is null");
+                checkArgument(split.getCatalogHandle().equals(table.getCatalogHandle()), "mismatched split and table");
+                CatalogHandle catalogHandle = split.getCatalogHandle();
+
+                TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
+                if (constraint.isNone()) {
+                    return new EmptyPageSource();
+                }
+                if (!isAllowPushdownIntoConnectors(session)) {
+                    dynamicFilter = DynamicFilter.EMPTY;
+                }
+                return statefulInstance.createPageSource(
+                        table.getTransaction(),
+                        session.toConnectorSession(catalogHandle),
+                        split.getConnectorSplit(),
+                        table.getConnectorHandle(),
+                        columns,
+                        dynamicFilter);
+            }
+        };
+    }
+
+    @Override
     public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
-        requireNonNull(columns, "columns is null");
-        checkArgument(split.getCatalogHandle().equals(table.getCatalogHandle()), "mismatched split and table");
-        CatalogHandle catalogHandle = split.getCatalogHandle();
-
-        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
-        TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
-        if (constraint.isNone()) {
-            return new EmptyPageSource();
-        }
-        if (!isAllowPushdownIntoConnectors(session)) {
-            dynamicFilter = DynamicFilter.EMPTY;
-        }
-        return provider.createPageSource(
-                table.getTransaction(),
-                session.toConnectorSession(catalogHandle),
-                split.getConnectorSplit(),
-                table.getConnectorHandle(),
-                columns,
-                dynamicFilter);
+        return getStatefulInstance(table.getCatalogHandle()).createPageSource(session, split, table, columns, dynamicFilter);
     }
 }

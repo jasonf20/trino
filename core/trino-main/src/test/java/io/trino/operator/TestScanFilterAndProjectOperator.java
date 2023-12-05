@@ -42,6 +42,7 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingSplit;
+import io.trino.util.FixedPageSourceProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -124,7 +125,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input))),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -166,7 +167,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(input)),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -211,7 +212,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input)),
                 cursorProcessor,
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -245,7 +246,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input))),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -296,7 +297,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input))),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,
@@ -361,7 +362,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input))),
                 cursorProcessor,
                 pageProcessor,
                 TEST_TABLE_HANDLE,

@@ -440,13 +440,13 @@ public class ScanFilterAndProjectOperator
             this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.pageSourceProvider = pageSourceProvider.getStatefulInstance(table.getCatalogHandle());
         }
 
         @Override

@@ -35,6 +35,7 @@ import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.PageConsumerOperator;
+import io.trino.util.FixedPageSourceProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -168,9 +169,9 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                        .build())),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
@@ -248,9 +249,9 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                        .build())),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
@@ -268,9 +269,9 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                        .build())),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
@@ -293,9 +294,9 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
-                        .build()),
+                        .build())),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 

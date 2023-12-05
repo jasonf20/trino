@@ -178,7 +178,7 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.spiller.SpillerFactory;
 import io.trino.split.PageSinkManager;
-import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceManager;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -399,7 +399,7 @@ public class LocalExecutionPlanner
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
-    private final PageSourceProvider pageSourceProvider;
+    private final PageSourceManager pageSourceProvider;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
@@ -454,7 +454,7 @@ public class LocalExecutionPlanner
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
-            PageSourceProvider pageSourceProvider,
+            PageSourceManager pageSourceProvider,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
@@ -1668,7 +1668,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
+            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle()).getStatefulInstance();
 
             if (node.getSource().isEmpty()) {
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
