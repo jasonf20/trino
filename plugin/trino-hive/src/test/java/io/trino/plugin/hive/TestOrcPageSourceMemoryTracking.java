@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingSplit;
+import io.trino.util.FixedPageSourceProvider;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -596,7 +597,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    new FixedPageSourceProvider((session, split, table, columnHandles, dynamicFilter) -> pageSource),
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
@@ -618,7 +619,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    new FixedPageSourceProvider((session, split, table, columnHandles, dynamicFilter) -> pageSource),
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,

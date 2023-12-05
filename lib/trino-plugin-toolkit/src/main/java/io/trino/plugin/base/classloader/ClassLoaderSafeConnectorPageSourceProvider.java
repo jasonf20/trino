@@ -42,6 +42,14 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     }
 
     @Override
+    public ConnectorPageSourceProvider getStatefulInstance()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return new ClassLoaderSafeConnectorPageSourceProvider(delegate.getStatefulInstance(), classLoader);
+        }
+    }
+
+    @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

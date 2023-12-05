@@ -40,6 +40,7 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTaskContext;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.util.FixedPageSourceProvider;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -168,7 +169,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
+                    new FixedPageSourceProvider((session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages)),
                     () -> cursorProcessor,
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,

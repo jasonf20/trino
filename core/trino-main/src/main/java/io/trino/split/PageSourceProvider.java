@@ -16,6 +16,7 @@ package io.trino.split;
 import io.trino.Session;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -24,6 +25,8 @@ import java.util.List;
 
 public interface PageSourceProvider
 {
+    PageSourceProvider getStatefulInstance(CatalogHandle catalogHandle);
+
     ConnectorPageSource createPageSource(
             Session session,
             Split split,
