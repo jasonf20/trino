@@ -127,6 +127,7 @@ public class TableChangesFunctionProcessor
                 split.fileRecordCount(),
                 split.partitionDataJson(),
                 split.fileFormat(),
+                0,
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
         this.delegateColumnMap = delegateColumnMap;
 

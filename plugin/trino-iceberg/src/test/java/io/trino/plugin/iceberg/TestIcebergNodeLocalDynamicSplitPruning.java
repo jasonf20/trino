@@ -165,7 +165,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
                 ImmutableList.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                0);
 
         String tablePath = inputFile.location().fileName();
         TableHandle tableHandle = new TableHandle(
@@ -193,7 +194,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        ConnectorPageSourceProvider provider = new IcebergPageSourceProvider(
+        ConnectorPageSourceProvider provider = new StateInstantiatingIcebergPageSourceProvider(
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 stats,
                 ORC_READER_CONFIG,
