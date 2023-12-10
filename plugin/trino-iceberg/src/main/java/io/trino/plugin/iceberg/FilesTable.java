@@ -33,7 +33,8 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
-import org.apache.iceberg.DataFile;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -50,6 +51,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -174,16 +177,24 @@ public class FilesTable
             addCloseable(planFilesIterator);
 
             return new CloseableIterator<>() {
+                Iterator<DeleteFile> deletesIterator = Collections.emptyIterator();
                 @Override
                 public boolean hasNext()
                 {
-                    return !closed && planFilesIterator.hasNext();
+                    return !closed && (deletesIterator.hasNext() || planFilesIterator.hasNext());
                 }
 
                 @Override
                 public List<Object> next()
                 {
-                    return getRecord(planFilesIterator.next().file());
+                    if (deletesIterator.hasNext()) {
+                        return getRecord(deletesIterator.next());
+                    }
+                    FileScanTask nextTask = planFilesIterator.next();
+                    if (!nextTask.deletes().isEmpty()) {
+                        deletesIterator = nextTask.deletes().iterator();
+                    }
+                    return getRecord(nextTask.file());
                 }
 
                 @Override
@@ -191,12 +202,13 @@ public class FilesTable
                         throws IOException
                 {
                     PlanFilesIterable.super.close();
+                    deletesIterator = null;
                     closed = true;
                 }
             };
         }
 
-        private List<Object> getRecord(DataFile dataFile)
+        private List<Object> getRecord(ContentFile<?> dataFile)
         {
             List<Object> columns = new ArrayList<>();
             columns.add(dataFile.content().id());
