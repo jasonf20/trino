@@ -36,10 +36,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,7 +55,7 @@ import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
 public class DeleteManager
 {
-    private final HashMap<Set<Integer>, EqualityDeleteFilter> equalityDeleteFiltersBySchema = new HashMap<>();
+    private final ConcurrentHashMap<Set<Integer>, EqualityDeleteFilter> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
     /**
      * @return an optional {@link RowPredicate} that indicates if a row is deleted.
@@ -141,9 +141,7 @@ public class DeleteManager
         if (!deletedRows.isEmpty()) {
             filters.add(new PositionDeleteFilter(deletedRows));
         }
-        synchronized (equalityDeleteFiltersBySchema) {
-            equalityDeleteFiltersBySchema.forEach((k, f) -> filters.add(f));
-        }
+        equalityDeleteFiltersBySchema.forEach((k, f) -> filters.add(f));
 
         return filters;
     }
@@ -244,9 +242,7 @@ public class DeleteManager
     @NotNull
     private EqualityDeleteFilter getFilterByDeleteSchema(Schema deleteSchema, List<Integer> equalityDeleteFieldIds)
     {
-        synchronized (equalityDeleteFiltersBySchema) {
-            return equalityDeleteFiltersBySchema.computeIfAbsent(ImmutableSet.copyOf(equalityDeleteFieldIds),
-                    (s) -> new EqualityDeleteFilter(deleteSchema));
-        }
+        return equalityDeleteFiltersBySchema.computeIfAbsent(ImmutableSet.copyOf(equalityDeleteFieldIds),
+                (s) -> new EqualityDeleteFilter(deleteSchema));
     }
 }
