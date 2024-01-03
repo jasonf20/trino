@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.delete;
 
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
@@ -26,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static java.util.Objects.requireNonNull;
 
@@ -136,8 +138,8 @@ public final class EqualityDeleteFilter
         }
         if (!hasRequiredColumns) {
             // If we don't have all the required columns this delete filter can't be applied.
-            // The iceberg split manager is responsible for making sure that we have all the required columns when a delete filter should be applied
-            return (page, position) -> true;
+            // The iceberg page source provider is responsible for making sure that we have all the required columns when a delete filter should be applied
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
         }
         else {
             StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
